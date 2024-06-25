@@ -1,0 +1,28 @@
+{
+  "name": "text-more-adab",
+  "version": "1.0.0",
+  "description": "A utility for sentiment analysis and text generation.",
+  "main": "src/index.js",
+  "scripts": {
+    "test": "jest"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ebetap/text-more-adab"
+  },
+  "keywords": [
+    "text",
+    "sentiment analysis",
+    "text generation",
+    "API",
+    "NLP"
+  ],
+  "author": "Allah",
+  "license": "MIT",
+  "dependencies": {
+    "axios": "^0.24.0"
+  },
+  "devDependencies": {
+    "jest": "^27.4.5"
+  }
+}
