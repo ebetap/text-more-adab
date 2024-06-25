@@ -17,7 +17,6 @@
     "API",
     "NLP"
   ],
-  "author": "Allah",
   "license": "MIT",
   "dependencies": {
     "axios": "^0.24.0"
