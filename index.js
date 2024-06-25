@@ -13,6 +13,9 @@ class TextMoreAdab {
         this.textGenerationApiKey = textGenerationApiKey;
         this.textGenerationApiEndpoint = textGenerationApiEndpoint;
         this.maxRetryAttempts = 3; // Maximum number of retry attempts
+        this.axiosInstance = axios.create({
+            timeout: 5000, // 5 seconds timeout for API calls
+        });
     }
 
     async retryableAPICall(apiCall) {
@@ -22,8 +25,9 @@ class TextMoreAdab {
                 const response = await apiCall();
                 return response;
             } catch (error) {
-                console.error(`API call attempt ${attempt + 1} failed:`, error);
+                console.error(`API call attempt ${attempt + 1} failed:`, error.message);
                 attempt++;
+                await this.wait(2000 * Math.pow(2, attempt)); // Exponential backoff
             }
         }
         throw new Error(`API call failed after ${this.maxRetryAttempts} attempts.`);
@@ -31,7 +35,7 @@ class TextMoreAdab {
 
     async analyzeSentiment(text) {
         const apiCall = async () => {
-            const response = await axios.post(this.sentimentApiEndpoint, {
+            const response = await this.axiosInstance.post(this.sentimentApiEndpoint, {
                 text: text
             }, {
                 headers: {
@@ -46,7 +50,7 @@ class TextMoreAdab {
 
     async rephraseNegative(text) {
         const apiCall = async () => {
-            const response = await axios.post(this.textGenerationApiEndpoint, {
+            const response = await this.axiosInstance.post(this.textGenerationApiEndpoint, {
                 prompt: `Transform this negative comment: "${text}" into an encouraging message.`,
                 max_tokens: 60
             }, {
@@ -72,23 +76,14 @@ class TextMoreAdab {
             // If sentiment is not negative or rephrasing fails, return an encouraging message
             return `You're doing great! Keep up the good work!`;
         } catch (error) {
-            console.error('Error transforming comment:', error);
+            console.error('Error transforming comment:', error.message);
             return `You're doing great! Keep up the good work!`;
         }
     }
-}
 
-// Example usage
-(async () => {
-    const transformer = new TextMoreAdab();
-    const comment = "I hate this product, it's terrible!";
-    try {
-        const positiveComment = await transformer.transformComment(comment);
-        console.log("Original:", comment);
-        console.log("Transformed:", positiveComment);
-    } catch (error) {
-        console.error('Failed to transform comment:', error);
+    async wait(ms) {
+        return new Promise(resolve => setTimeout(resolve, ms));
     }
-})();
+}
 
 module.exports = TextMoreAdab;
