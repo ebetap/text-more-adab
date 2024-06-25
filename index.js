@@ -1,21 +1,31 @@
 const axios = require('axios');
 
-// Replace with your actual API keys and endpoints
-const sentimentApiKey = 'YOUR_SENTIMENT_API_KEY';
-const sentimentApiEndpoint = 'https://api.twinword.com/api/v6/text/sentiment/';
-const textGenerationApiKey = 'YOUR_TEXT_GENERATION_API_KEY';
-const textGenerationApiEndpoint = 'https://api.openai.com/v1/engines/davinci-codex/completions';
-
 class TextMoreAdab {
-    constructor() {
+    constructor(sentimentApiKey, sentimentApiEndpoint, textGenerationApiKey, textGenerationApiEndpoint) {
+        if (!sentimentApiKey || typeof sentimentApiKey !== 'string') {
+            throw new Error('Invalid sentiment API key');
+        }
+        if (!sentimentApiEndpoint || typeof sentimentApiEndpoint !== 'string') {
+            throw new Error('Invalid sentiment API endpoint');
+        }
+        if (!textGenerationApiKey || typeof textGenerationApiKey !== 'string') {
+            throw new Error('Invalid text generation API key');
+        }
+        if (!textGenerationApiEndpoint || typeof textGenerationApiEndpoint !== 'string') {
+            throw new Error('Invalid text generation API endpoint');
+        }
+
         this.sentimentApiKey = sentimentApiKey;
         this.sentimentApiEndpoint = sentimentApiEndpoint;
         this.textGenerationApiKey = textGenerationApiKey;
         this.textGenerationApiEndpoint = textGenerationApiEndpoint;
-        this.maxRetryAttempts = 3; // Maximum number of retry attempts
+
         this.axiosInstance = axios.create({
-            timeout: 5000, // 5 seconds timeout for API calls
+            timeout: 5000 // 5 seconds timeout for API calls
         });
+
+        this.maxRetryAttempts = 3;
+        this.retryDelayBase = 2000; // 2000 ms base delay for exponential backoff
     }
 
     async retryableAPICall(apiCall) {
@@ -27,38 +37,54 @@ class TextMoreAdab {
             } catch (error) {
                 console.error(`API call attempt ${attempt + 1} failed:`, error.message);
                 attempt++;
-                await this.wait(2000 * Math.pow(2, attempt)); // Exponential backoff
+                await this.wait(this.retryDelayBase * Math.pow(2, attempt));
             }
         }
         throw new Error(`API call failed after ${this.maxRetryAttempts} attempts.`);
     }
 
     async analyzeSentiment(text) {
+        if (!text || typeof text !== 'string') {
+            throw new Error('Invalid input: text must be a non-empty string.');
+        }
+
         const apiCall = async () => {
-            const response = await this.axiosInstance.post(this.sentimentApiEndpoint, {
-                text: text
-            }, {
-                headers: {
-                    'X-Twaip-Key': this.sentimentApiKey
-                }
-            });
-            return response.data;
+            try {
+                const response = await this.axiosInstance.post(this.sentimentApiEndpoint, {
+                    text: text
+                }, {
+                    headers: {
+                        'X-Twaip-Key': this.sentimentApiKey
+                    }
+                });
+                return response.data;
+            } catch (error) {
+                throw new Error(`Sentiment analysis API call failed: ${error.message}`);
+            }
         };
 
         return await this.retryableAPICall(apiCall);
     }
 
     async rephraseNegative(text) {
+        if (!text || typeof text !== 'string') {
+            throw new Error('Invalid input: text must be a non-empty string.');
+        }
+
         const apiCall = async () => {
-            const response = await this.axiosInstance.post(this.textGenerationApiEndpoint, {
-                prompt: `Transform this negative comment: "${text}" into an encouraging message.`,
-                max_tokens: 60
-            }, {
-                headers: {
-                    'Authorization': `Bearer ${this.textGenerationApiKey}`
-                }
-            });
-            return response.data.choices[0].text.trim();
+            try {
+                const response = await this.axiosInstance.post(this.textGenerationApiEndpoint, {
+                    prompt: `Transform this negative comment: "${text}" into an encouraging message.`,
+                    max_tokens: 60
+                }, {
+                    headers: {
+                        'Authorization': `Bearer ${this.textGenerationApiKey}`
+                    }
+                });
+                return response.data.choices[0].text.trim();
+            } catch (error) {
+                throw new Error(`Text generation API call failed: ${error.message}`);
+            }
         };
 
         return await this.retryableAPICall(apiCall);
@@ -66,6 +92,10 @@ class TextMoreAdab {
 
     async transformComment(comment) {
         try {
+            if (!comment || typeof comment !== 'string') {
+                throw new Error('Invalid input: comment must be a non-empty string.');
+            }
+
             const sentimentData = await this.analyzeSentiment(comment);
             if (sentimentData && sentimentData.type === 'negative') {
                 const positiveComment = await this.rephraseNegative(comment);
